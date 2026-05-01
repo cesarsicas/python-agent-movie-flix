@@ -20,7 +20,8 @@ def _fmt_search_results(results: list) -> str:
     for r in results[:10]:
         year = f" ({r['year']})" if r.get("year") else ""
         kind = r.get("type", "")
-        lines.append(f"- {r['name']}{year} [{kind}] (id: {r['id']})")
+        link = f"{settings.frontend_base_url}/title/details/{r['id']}"
+        lines.append(f"- [{r['name']}{year}]({link}) [{kind}] (id: {r['id']})")
     return "\n".join(lines)
 
 
@@ -34,11 +35,12 @@ def _fmt_releases(results: list) -> str:
         kind = r.get("type", "")
         date_str = f" — {date}" if date else ""
         source_str = f" on {source}" if source else ""
-        lines.append(f"- {r['title']} [{kind}]{source_str}{date_str} (id: {r['external_id']})")
+        link = f"{settings.frontend_base_url}/title/details/{r['external_id']}"
+        lines.append(f"- [{r['title']}]({link}) [{kind}]{source_str}{date_str} (id: {r['external_id']})")
     return "\n".join(lines)
 
 
-def _fmt_details(d: dict) -> str:
+def _fmt_details(d: dict, external_id: int) -> str:
     title = d.get("title", "Unknown")
     year = d.get("year") or ""
     kind = d.get("type", "")
@@ -49,7 +51,13 @@ def _fmt_details(d: dict) -> str:
     genres = d.get("genre_names") or []
     us_rating = d.get("us_rating") or ""
 
-    parts = [f"{title} ({year}) [{kind}]"]
+    link = f"{settings.frontend_base_url}/title/details/{external_id}"
+    poster = d.get("poster")
+
+    parts = []
+    if poster:
+        parts.append(f"[![poster]({poster})]({link})")
+    parts.append(f"[{title} ({year})]({link}) [{kind}]")
     if genres:
         parts.append(f"Genres: {', '.join(genres)}")
     meta = []
@@ -64,6 +72,7 @@ def _fmt_details(d: dict) -> str:
     if meta:
         parts.append(" | ".join(meta))
     parts.append(plot)
+    parts.append(f"Watch here: {link}")
     return "\n".join(parts)
 
 
@@ -98,7 +107,7 @@ async def get_title_details(external_id: int) -> str:
     Use the id returned by search_titles or get_releases as the external_id."""
     try:
         data = await _spring_get(f"/titles/{external_id}")
-        return _fmt_details(data)
+        return _fmt_details(data, external_id)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             return f"Title with id {external_id} not found."
