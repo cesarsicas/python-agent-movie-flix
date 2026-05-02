@@ -130,12 +130,20 @@ def _fmt_reviews(results: list) -> str:
 
 
 @tool
-async def search_titles(query: str) -> str:
-    """Search for movies, TV shows, and people by name or partial name.
-    Use this when the user wants to find a specific title or person by name.
-    Returns matching titles (with id for get_title_details) and people (with person_id for get_person)."""
+async def search_titles(query: str, filter_type: str = "TITLES_AND_PEOPLE") -> str:
+    """Primary search tool — always use this first when looking up any movie, TV show, or person by name.
+    Returns titles (with id for get_title_details) and people (with person_id for get_person or list_titles).
+
+    filter_type controls what kinds of results to return:
+      TITLES_AND_PEOPLE — default, returns both titles and people
+      TITLES_ONLY       — any title (movies + TV shows)
+      MOVIES_ONLY       — movies only
+      TV_SHOWS_ONLY     — TV shows only
+      PEOPLE_ONLY       — actors, directors, and other people
+    """
+    params = {"query": query, "filterResultType": filter_type}
     try:
-        data = await _spring_get("/titles/autocomplete-search", params={"query": query})
+        data = await _spring_get("/titles/autocomplete-search", params=params)
         return _fmt_autocomplete(data)
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
