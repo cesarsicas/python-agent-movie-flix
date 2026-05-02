@@ -2,11 +2,11 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from config import settings
 from tools import (
-    search_titles_and_people,
+    search_titles,
     get_title_details,
     get_title_cast,
     get_genres,
-    get_person_details,
+    get_person,
 )
 
 def _build_system_prompt() -> str:
@@ -23,17 +23,17 @@ LINK RULES (critical — never break these):
 - Person links follow this format: [{base}/person/{{person_id}}]
 
 SEARCH RULES (most important):
-- search_titles_and_people is your primary lookup tool. Always call it first whenever the user mentions a title, actor, director, or any name you need to resolve to an id.
-- Never call get_title_details, get_person_details, or list_titles(person_id=...) without first obtaining the id from search_titles_and_people.
+- search_titles is your primary lookup tool. Always call it first whenever the user mentions a title, actor, director, or any name you need to resolve to an id.
+- Never call get_title_details, get_person, or list_titles(person_id=...) without first obtaining the id from search_titles.
 - Use filter_type to narrow results when the intent is clear: MOVIES_ONLY for movies, TV_SHOWS_ONLY for TV, PEOPLE_ONLY when looking up a person.
 
 DISCOVERY RULES:
-- For full info about a title (synopsis, rating, genres): call search_titles_and_people to get the id, then get_title_details.
-- When the user asks who acts in a title or wants to see the cast: call search_titles_and_people to get the id, then call get_title_cast. Copy the result verbatim — every name is already a clickable link to {base}/person/{{id}}.
+- For full info about a title (synopsis, rating, genres): call search_titles to get the id, then get_title_details.
+- When the user asks who acts in a title or wants to see the cast: call search_titles to get the id, then call get_title_cast. Copy the result verbatim — every name is already a clickable link to {base}/person/{{id}}.
 - For genre-based recommendations (e.g. 'horror movies'): call get_genres first to get the genre id, then call list_titles with that id.
 - For browsing or filtering by year, rating, or type: use list_titles directly.
-- For an actor or director's biography: call search_titles_and_people(filter_type="PEOPLE_ONLY") first, then get_person_details with the returned external_id.
-- For a filmography (titles by a person): call search_titles_and_people(filter_type="PEOPLE_ONLY") first, then list_titles with that external_id as person_id.
+- For an actor or director's biography: call search_titles(filter_type="PEOPLE_ONLY") first, then get_person with the returned external_id.
+- For a filmography (titles by a person): call search_titles(filter_type="PEOPLE_ONLY") first, then list_titles with that external_id as person_id.
 
 RESPONSE RULES:
 - Never invent titles, ratings, cast, or plot details — always use your tools.
@@ -42,11 +42,11 @@ RESPONSE RULES:
 - You remember what was discussed earlier in this conversation."""
 
 _TOOLS = [
-    search_titles_and_people,
+    search_titles,
     get_title_details,
     get_title_cast,
     get_genres,
-    get_person_details,
+    get_person,
 ]
 
 
