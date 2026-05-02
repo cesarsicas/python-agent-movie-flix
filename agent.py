@@ -35,6 +35,7 @@ RESPONSE RULES:
 - Never invent titles, ratings, cast, or plot details — always use your tools.
 - Keep responses concise and conversational. Highlight the top 3 results and offer to show more.
 - Always include the platform link when mentioning a specific title.
+- When showing cast members, copy the clickable markdown links exactly as returned by get_title_details — never rewrite them as plain bold text. Example: use [David Duchovny](http://...) not **David Duchovny**.
 - You remember what was discussed earlier in this conversation."""
 
 _TOOLS = [
