@@ -13,16 +13,58 @@ async def _spring_get(path: str, params: dict | None = None) -> dict | list:
         return resp.json()
 
 
-def _fmt_search_results(results: list) -> str:
+def _fmt_autocomplete(data: dict) -> str:
+    results = data.get("results", [])
     if not results:
-        return "No titles found."
+        return "No titles or people found."
     lines = []
     for r in results[:10]:
+        name = r.get("name", "")
+        year = f" ({r['year']})" if r.get("year") else ""
+        result_type = r.get("result_type") or r.get("type", "")
+        rid = r.get("id")
+        if result_type in ("movie", "tv_movie", "tv_series", "tv_miniseries", "tv_special", "tv_short"):
+            link = f"{settings.frontend_base_url}/title/details/{rid}"
+            lines.append(f"- [{name}{year}]({link}) [{result_type}] (id: {rid})")
+        else:
+            lines.append(f"- {name} [person] (person_id: {rid})")
+    return "\n".join(lines)
+
+
+def _fmt_list_titles(data: dict) -> str:
+    titles = data.get("titles", [])
+    if not titles:
+        return "No titles found matching those criteria."
+    total = data.get("total_results", 0)
+    page = data.get("page", 1)
+    lines = [f"Found {total} titles (page {page}):"]
+    for r in titles:
         year = f" ({r['year']})" if r.get("year") else ""
         kind = r.get("type", "")
-        link = f"{settings.frontend_base_url}/title/details/{r['id']}"
-        lines.append(f"- [{r['name']}{year}]({link}) [{kind}] (id: {r['id']})")
+        ext_id = r.get("externalId") or r.get("id")
+        link = f"{settings.frontend_base_url}/title/details/{ext_id}"
+        lines.append(f"- [{r['title']}{year}]({link}) [{kind}] (id: {ext_id})")
     return "\n".join(lines)
+
+
+def _fmt_person(d: dict) -> str:
+    name = d.get("full_name") or f"{d.get('first_name', '')} {d.get('last_name', '')}".strip()
+    ext_id = d.get("externalId") or d.get("id")
+    professions = [p for p in [d.get("main_profession"), d.get("secondary_profession"), d.get("tertiary_profession")] if p]
+    parts = [f"**{name}** (person_id: {ext_id})"]
+    if professions:
+        parts.append(f"Profession: {', '.join(professions)}")
+    if d.get("date_of_birth"):
+        place = d.get("place_of_birth")
+        birth_str = f"Born: {d['date_of_birth']}"
+        if place:
+            birth_str += f" in {place}"
+        if d.get("date_of_death"):
+            birth_str += f" — Died: {d['date_of_death']}"
+        parts.append(birth_str)
+    if d.get("headshot_url"):
+        parts.append(f"![{name}]({d['headshot_url']})")
+    return "\n".join(parts)
 
 
 def _fmt_releases(results: list) -> str:
@@ -89,12 +131,12 @@ def _fmt_reviews(results: list) -> str:
 
 @tool
 async def search_titles(query: str) -> str:
-    """Search for movies and TV shows by title, genre, mood, theme, or description.
-    Use this when the user asks for recommendations or wants to find specific content.
-    Returns a list of matching titles with their id (use this id to get details or reviews)."""
+    """Search for movies, TV shows, and people by name or partial name.
+    Use this when the user wants to find a specific title or person by name.
+    Returns matching titles (with id for get_title_details) and people (with person_id for get_person)."""
     try:
-        data = await _spring_get("/titles/search", params={"query": query})
-        return _fmt_search_results(data)
+        data = await _spring_get("/titles/autocomplete-search", params={"query": query})
+        return _fmt_autocomplete(data)
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
     except httpx.HTTPStatusError as e:
@@ -162,3 +204,92 @@ async def get_current_transmission() -> str:
         return f"Could not fetch live transmission info (HTTP {e.response.status_code})."
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Could not reach the platform. Please try again in a moment."
+
+
+@tool
+async def list_titles(
+    genres: str | None = None,
+    types: str | None = None,
+    sort_by: str = "relevance_desc",
+    release_date_start: int | None = None,
+    release_date_end: int | None = None,
+    user_rating_low: float | None = None,
+    user_rating_high: float | None = None,
+    critic_score_low: int | None = None,
+    critic_score_high: int | None = None,
+    person_id: int | None = None,
+    limit: int = 10,
+) -> str:
+    """Browse and filter movies and TV shows by genre, content type, year range, ratings, or by a specific person.
+    Use this for discovery queries like 'recommend horror movies', 'top rated comedies', 'sci-fi from the 90s', or 'films starring [actor]'.
+    When filtering by genre, call get_genres first to obtain the correct genre externalId values.
+    person_id must be obtained first from search_titles or get_person.
+
+    genres: comma-separated genre externalIds from get_genres (e.g. "15" or "6,21")
+    types: comma-separated content types — movie, tv_movie, tv_series, tv_miniseries, tv_special
+    sort_by: relevance_desc, relevance_asc, release_date_desc, release_date_asc, rating_desc, rating_asc
+    release_date_start / release_date_end: 4-digit year, e.g. 1990 or 2024
+    user_rating_low / user_rating_high: 0.0–10.0 scale
+    critic_score_low / critic_score_high: 0–100 scale
+    person_id: filter titles featuring a specific actor or director (use their WatchMode person_id)
+    limit: number of results (max 10)
+    """
+    params: dict = {"sort_by": sort_by, "limit": min(limit, 10)}
+    if genres:
+        params["genres"] = genres
+    if types:
+        params["types"] = types
+    if release_date_start is not None:
+        params["release_date_start"] = release_date_start
+    if release_date_end is not None:
+        params["release_date_end"] = release_date_end
+    if user_rating_low is not None:
+        params["user_rating_low"] = user_rating_low
+    if user_rating_high is not None:
+        params["user_rating_high"] = user_rating_high
+    if critic_score_low is not None:
+        params["critic_score_low"] = critic_score_low
+    if critic_score_high is not None:
+        params["critic_score_high"] = critic_score_high
+    if person_id is not None:
+        params["person_id"] = person_id
+    try:
+        data = await _spring_get("/titles/list", params=params)
+        return _fmt_list_titles(data)
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return "Movie database is temporarily unreachable. Please try again in a moment."
+    except httpx.HTTPStatusError as e:
+        return f"Could not fetch titles (HTTP {e.response.status_code}). Please try again."
+
+
+@tool
+async def get_genres() -> str:
+    """Get the full list of available genres with their IDs.
+    Call this before using list_titles with a genre filter so you have the correct genre externalId.
+    Returns each genre's name and externalId (use externalId as the genres param in list_titles)."""
+    try:
+        data = await _spring_get("/titles/genres")
+        if not data:
+            return "No genres available."
+        lines = [f"- {g['name']} (id: {g['externalId']})" for g in data]
+        return "\n".join(lines)
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return "Movie database is temporarily unreachable. Please try again in a moment."
+    except httpx.HTTPStatusError as e:
+        return f"Could not fetch genres (HTTP {e.response.status_code})."
+
+
+@tool
+async def get_person(person_id: int) -> str:
+    """Get biography and career details for an actor, director, or other film/TV person.
+    Use the person_id returned by search_titles.
+    Returns name, professions, date of birth, and place of birth."""
+    try:
+        data = await _spring_get(f"/titles/person/{person_id}")
+        return _fmt_person(data)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return f"Person with id {person_id} not found."
+        return f"Could not fetch person details (HTTP {e.response.status_code})."
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return "Movie database is temporarily unreachable. Please try again in a moment."
