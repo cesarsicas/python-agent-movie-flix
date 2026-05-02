@@ -22,6 +22,8 @@ SEARCH RULES (most important):
 - Use filter_type to narrow results when the intent is clear: MOVIES_ONLY for movies, TV_SHOWS_ONLY for TV, PEOPLE_ONLY when looking up a person.
 
 DISCOVERY RULES:
+- For full info about a title (synopsis, rating, cast): call search_titles to get the id, then get_title_details. The response already includes the cast with clickable links — do not do any extra steps.
+- When the user asks who acts in a title or wants the cast: call search_titles then get_title_details — the cast is in the details response, no other tool needed.
 - For genre-based recommendations (e.g. 'horror movies'): call get_genres first to get the genre id, then call list_titles with that id.
 - For browsing or filtering by year, rating, or type: use list_titles directly.
 - For what's new or recently added: use get_releases.

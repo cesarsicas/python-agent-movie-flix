@@ -114,6 +114,26 @@ def _fmt_details(d: dict, external_id: int) -> str:
     if meta:
         parts.append(" | ".join(meta))
     parts.append(plot)
+
+    cast = d.get("cast") or []
+    if cast:
+        actors = sorted(
+            [m for m in cast if m.get("type") == "Actor"],
+            key=lambda m: m.get("order", 999),
+        )
+        directors = [m for m in cast if m.get("type") == "Director"]
+        if actors:
+            parts.append("**Cast:**")
+            for m in actors[:10]:
+                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
+                role = f" as {m['role']}" if m.get("role") else ""
+                parts.append(f"- [{m['full_name']}]({person_link}){role}")
+        if directors:
+            parts.append("**Director(s):**")
+            for m in directors:
+                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
+                parts.append(f"- [{m['full_name']}]({person_link})")
+
     parts.append(f"Watch here: {link}")
     return "\n".join(parts)
 
