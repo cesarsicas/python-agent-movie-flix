@@ -27,7 +27,7 @@ def _fmt_autocomplete(data: dict) -> str:
             link = f"{settings.frontend_base_url}/title/details/{rid}"
             lines.append(f"- [{name}{year}]({link}) [{result_type}] (id: {rid})")
         else:
-            lines.append(f"- {name} [person] (person_id: {rid})")
+            lines.append(f"- {name} [person] (external_id: {rid})")
     return "\n".join(lines)
 
 
@@ -51,7 +51,7 @@ def _fmt_person(d: dict) -> str:
     name = d.get("full_name") or f"{d.get('first_name', '')} {d.get('last_name', '')}".strip()
     ext_id = d.get("externalId") or d.get("id")
     professions = [p for p in [d.get("main_profession"), d.get("secondary_profession"), d.get("tertiary_profession")] if p]
-    parts = [f"**{name}** (person_id: {ext_id})"]
+    parts = [f"**{name}** (external_id: {ext_id})"]
     if professions:
         parts.append(f"Profession: {', '.join(professions)}")
     if d.get("date_of_birth"):
@@ -239,7 +239,7 @@ async def list_titles(
     release_date_start / release_date_end: 4-digit year, e.g. 1990 or 2024
     user_rating_low / user_rating_high: 0.0–10.0 scale
     critic_score_low / critic_score_high: 0–100 scale
-    person_id: filter titles featuring a specific actor or director (use their WatchMode person_id)
+    person_id: filter titles featuring a specific actor or director (use the external_id from search_titles)
     limit: number of results (max 10)
     """
     params: dict = {"sort_by": sort_by, "limit": min(limit, 10)}
@@ -288,16 +288,16 @@ async def get_genres() -> str:
 
 
 @tool
-async def get_person(person_id: int) -> str:
+async def get_person(external_id: int) -> str:
     """Get biography and career details for an actor, director, or other film/TV person.
-    Use the person_id returned by search_titles.
+    Use the external_id returned by search_titles for a person result.
     Returns name, professions, date of birth, and place of birth."""
     try:
-        data = await _spring_get(f"/titles/person/{person_id}")
+        data = await _spring_get(f"/titles/person/{external_id}")
         return _fmt_person(data)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return f"Person with id {person_id} not found."
+            return f"Person with external_id {external_id} not found."
         return f"Could not fetch person details (HTTP {e.response.status_code})."
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
