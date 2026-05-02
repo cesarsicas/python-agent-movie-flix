@@ -4,6 +4,7 @@ from config import settings
 from tools import (
     search_titles,
     get_title_details,
+    get_title_cast,
     get_title_reviews,
     get_releases,
     get_current_transmission,
@@ -22,8 +23,8 @@ SEARCH RULES (most important):
 - Use filter_type to narrow results when the intent is clear: MOVIES_ONLY for movies, TV_SHOWS_ONLY for TV, PEOPLE_ONLY when looking up a person.
 
 DISCOVERY RULES:
-- For full info about a title (synopsis, rating, cast): call search_titles to get the id, then get_title_details. The response already includes the cast with clickable links — do not do any extra steps.
-- When the user asks who acts in a title or wants the cast: call search_titles then get_title_details — the cast is in the details response, no other tool needed.
+- For full info about a title (synopsis, rating, genres): call search_titles to get the id, then get_title_details.
+- When the user asks who acts in a title or wants to see the cast: call search_titles to get the id, then call get_title_cast. Present the result exactly as returned — do not reformat or rewrite the names, every actor name is already a clickable link.
 - For genre-based recommendations (e.g. 'horror movies'): call get_genres first to get the genre id, then call list_titles with that id.
 - For browsing or filtering by year, rating, or type: use list_titles directly.
 - For what's new or recently added: use get_releases.
@@ -35,12 +36,13 @@ RESPONSE RULES:
 - Never invent titles, ratings, cast, or plot details — always use your tools.
 - Keep responses concise and conversational. Highlight the top 3 results and offer to show more.
 - Always include the platform link when mentioning a specific title.
-- When showing cast members, copy the clickable markdown links exactly as returned by get_title_details — never rewrite them as plain bold text. Example: use [David Duchovny](http://...) not **David Duchovny**.
+- When showing cast members from get_title_cast, copy the output verbatim — never rewrite actor names as plain bold text.
 - You remember what was discussed earlier in this conversation."""
 
 _TOOLS = [
     search_titles,
     get_title_details,
+    get_title_cast,
     get_title_reviews,
     get_releases,
     get_current_transmission,

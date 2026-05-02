@@ -114,26 +114,6 @@ def _fmt_details(d: dict, external_id: int) -> str:
     if meta:
         parts.append(" | ".join(meta))
     parts.append(plot)
-
-    cast = d.get("cast") or []
-    if cast:
-        actors = sorted(
-            [m for m in cast if m.get("type") == "Actor"],
-            key=lambda m: m.get("order", 999),
-        )
-        directors = [m for m in cast if m.get("type") == "Director"]
-        if actors:
-            parts.append("**Cast:**")
-            for m in actors[:10]:
-                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
-                role = f" as {m['role']}" if m.get("role") else ""
-                parts.append(f"- [{m['full_name']}]({person_link}){role}")
-        if directors:
-            parts.append("**Director(s):**")
-            for m in directors:
-                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
-                parts.append(f"- [{m['full_name']}]({person_link})")
-
     parts.append(f"Watch here: {link}")
     return "\n".join(parts)
 
@@ -197,6 +177,43 @@ async def get_title_reviews(external_id: int) -> str:
         if e.response.status_code == 404:
             return f"No reviews found for title id {external_id}."
         return f"Could not fetch reviews (HTTP {e.response.status_code})."
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return "Movie database is temporarily unreachable. Please try again in a moment."
+
+
+@tool
+async def get_title_cast(external_id: int) -> str:
+    """Get the cast and directors of a movie or TV show as clickable links to their profile pages.
+    Use this when the user asks who acts in a title or wants to see the cast.
+    Use the id returned by search_titles as the external_id.
+    IMPORTANT: output this list exactly as returned — every name is already a clickable markdown link."""
+    try:
+        data = await _spring_get(f"/titles/{external_id}")
+        cast = data.get("cast") or []
+        if not cast:
+            return "No cast information available for this title."
+        actors = sorted(
+            [m for m in cast if m.get("type") == "Actor"],
+            key=lambda m: m.get("order", 999),
+        )
+        directors = [m for m in cast if m.get("type") == "Director"]
+        parts = []
+        if actors:
+            parts.append("**Cast:**")
+            for m in actors:
+                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
+                role = f" as {m['role']}" if m.get("role") else ""
+                parts.append(f"- [{m['full_name']}]({person_link}){role}")
+        if directors:
+            parts.append("**Director(s):**")
+            for m in directors:
+                person_link = f"{settings.frontend_base_url}/person/{m['person_id']}"
+                parts.append(f"- [{m['full_name']}]({person_link})")
+        return "\n".join(parts)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return f"Title with id {external_id} not found."
+        return f"Could not fetch cast (HTTP {e.response.status_code})."
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
 
