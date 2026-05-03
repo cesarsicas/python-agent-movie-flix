@@ -111,7 +111,20 @@ async def search_titles(query: str) -> str:
         return "Movie database is temporarily unreachable. Please try again in a moment."
     except httpx.HTTPStatusError as e:
         return f"Search unavailable (HTTP {e.response.status_code}). Please try again."
+    
 
+@tool
+async def search_people(query: str) -> str:
+    """Search for people by name. Use this to search for Actors, Actress, Directors, Writers or any person name that is not a movie
+     Always call this first to get the id before using get_person."""
+    params = {"searchValue": query, "searchField": "name", "types": "person"}
+    try:
+        data = await _spring_get("/titles/search", params=params)
+        return _fmt_search_results(data)
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return "Movie database is temporarily unreachable. Please try again in a moment."
+    except httpx.HTTPStatusError as e:
+        return f"Search unavailable (HTTP {e.response.status_code}). Please try again."
 
 @tool
 async def get_title_details(external_id: int) -> str:

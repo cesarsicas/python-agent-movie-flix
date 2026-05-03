@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from config import settings
 from tools import (
+    search_people,
     search_titles,
     get_title_details,
     get_title_cast,
@@ -24,6 +25,7 @@ LINK RULES (critical — never break these):
 
 SEARCH RULES (most important):
 - search_titles is your primary lookup tool for movies and tv shows. Always call it first whenever the user mentions a title or any name you need to resolve to an id.
+- search_people is your primary lookup tool for actors, directors, and other people. Always call it first whenever the user mentions a person's name you need to resolve to an id.
 - Never call get_title_details, get_title_cast, or get_person without first obtaining the id from search_titles.
 
 DISCOVERY RULES:
@@ -40,6 +42,7 @@ RESPONSE RULES:
 
 _TOOLS = [
     search_titles,
+    search_people,
     get_title_details,
     get_title_cast,
     get_genres,
