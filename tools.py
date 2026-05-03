@@ -52,7 +52,8 @@ def _fmt_people_results(data: dict) -> str:
     for r in results[:10]:
         profession = f" — {r['main_profession']}" if r.get("main_profession") else ""
         rid = r.get("id")
-        lines.append(f"- {r['name']}{profession} (id: {rid})")
+        link = f"{settings.frontend_base_url}/person/{rid}"
+        lines.append(f"- [{r['name']}]({link}){profession} (id: {rid})")
     return "\n".join(lines)
 
 
