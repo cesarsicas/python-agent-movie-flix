@@ -13,23 +13,6 @@ async def _spring_get(path: str, params: dict | None = None) -> dict | list:
         return resp.json()
 
 
-def _fmt_autocomplete(data: dict) -> str:
-    results = data.get("results", [])
-    if not results:
-        return "No titles or people found."
-    lines = []
-    for r in results[:10]:
-        name = r.get("name", "")
-        year = f" ({r['year']})" if r.get("year") else ""
-        result_type = r.get("result_type") or r.get("type", "")
-        rid = r.get("id")
-        if result_type in ("movie", "tv_movie", "tv_series", "tv_miniseries", "tv_special", "tv_short"):
-            link = f"{settings.frontend_base_url}/title/details/{rid}"
-            lines.append(f"- [{name}{year}]({link}) [{result_type}] (id: {rid})")
-        else:
-            lines.append(f"- {name} [person] (external_id: {rid})")
-    return "\n".join(lines)
-
 
 def _fmt_list_titles(data: dict) -> str:
     titles = data.get("titles", [])
@@ -44,6 +27,20 @@ def _fmt_list_titles(data: dict) -> str:
         ext_id = r.get("externalId") or r.get("id")
         link = f"{settings.frontend_base_url}/title/details/{ext_id}"
         lines.append(f"- [{r['title']}{year}]({link}) [{kind}] (id: {ext_id})")
+    return "\n".join(lines)
+
+
+def _fmt_search_results(data: dict) -> str:
+    results = data.get("title_results", [])
+    if not results:
+        return "No titles found matching those criteria."
+    lines = []
+    for r in results[:10]:
+        year = f" ({r['year']})" if r.get("year") else ""
+        kind = r.get("type", "")
+        rid = r.get("id")
+        link = f"{settings.frontend_base_url}/title/details/{rid}"
+        lines.append(f"- [{r['name']}{year}]({link}) [{kind}] (id: {rid})")
     return "\n".join(lines)
 
 
@@ -104,21 +101,12 @@ def _fmt_details(d: dict, external_id: int) -> str:
 
 
 @tool
-async def search_titles(query: str, filter_type: str = "TITLES_AND_PEOPLE") -> str:
-    """Primary search tool — always use this first when looking up any movie, TV show, or person by name.
-    Returns titles (with id for get_title_details) and people (with person_id for get_person or list_titles).
-
-    filter_type controls what kinds of results to return:
-      TITLES_AND_PEOPLE — default, returns both titles and people
-      TITLES_ONLY       — any title (movies + TV shows)
-      MOVIES_ONLY       — movies only
-      TV_SHOWS_ONLY     — TV shows only
-      PEOPLE_ONLY       — actors, directors, and other people
-    """
-    params = {"query": query, "filterResultType": filter_type}
+async def search_titles(query: str) -> str:
+    """Search for movies and TV shows by name. Always call this first to get the id before using get_title_details, get_title_cast, or list_titles."""
+    params = {"searchValue": query, "searchField": "name", "types": "movie,tv"}
     try:
-        data = await _spring_get("/titles/autocomplete-search", params=params)
-        return _fmt_autocomplete(data)
+        data = await _spring_get("/titles/search", params=params)
+        return _fmt_search_results(data)
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
     except httpx.HTTPStatusError as e:
