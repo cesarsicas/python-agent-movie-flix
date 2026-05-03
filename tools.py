@@ -44,6 +44,18 @@ def _fmt_search_results(data: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_people_results(data: dict) -> str:
+    results = data.get("people_results", [])
+    if not results:
+        return "No people found matching that name."
+    lines = []
+    for r in results[:10]:
+        profession = f" — {r['main_profession']}" if r.get("main_profession") else ""
+        rid = r.get("id")
+        lines.append(f"- {r['name']}{profession} (id: {rid})")
+    return "\n".join(lines)
+
+
 def _fmt_person(d: dict) -> str:
     name = d.get("full_name") or f"{d.get('first_name', '')} {d.get('last_name', '')}".strip()
     ext_id = d.get("externalId") or d.get("id")
@@ -120,7 +132,7 @@ async def search_people(query: str) -> str:
     params = {"searchValue": query, "searchField": "name", "types": "person"}
     try:
         data = await _spring_get("/titles/search", params=params)
-        return _fmt_search_results(data)
+        return _fmt_people_results(data)
     except (httpx.ConnectError, httpx.TimeoutException):
         return "Movie database is temporarily unreachable. Please try again in a moment."
     except httpx.HTTPStatusError as e:
